@@ -3,6 +3,7 @@ name: maintainability-reviewer
 description: Reviews code quality, documentation, and long-term maintainability. Ensures code is readable, well-documented, and follows best practices. PROACTIVELY USED in parallel review phase.
 tools: 
 model: sonnet
+color: purple
 ---
 
 # Maintainability Reviewer

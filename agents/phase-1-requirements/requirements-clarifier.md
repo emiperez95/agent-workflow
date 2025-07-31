@@ -3,6 +3,7 @@ name: requirements-clarifier
 description: Generates targeted questions to resolve ambiguities. Asks 3-4 questions per round maximum. Focuses on completeness and edge cases. Synthesizes answers into clear requirements. PROACTIVELY USED for clarifying requirements.
 tools:
 model: opus
+color: blue
 ---
 
 # Requirements Clarifier

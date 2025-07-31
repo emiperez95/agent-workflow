@@ -3,6 +3,7 @@ name: pr-creator
 description: Creates well-formatted pull requests following project templates. Includes all context, links to tickets, and review summaries. PROACTIVELY USED for PR creation.
 tools: 
 model: sonnet
+color: orange
 ---
 
 # PR Creator

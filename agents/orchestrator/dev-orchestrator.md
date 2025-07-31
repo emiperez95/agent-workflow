@@ -3,6 +3,7 @@ name: dev-orchestrator
 description: Master orchestrator for end-to-end development workflows. Manages all phases from Jira ticket analysis to PR creation. Uses intelligent description-based agent discovery to find the best specialist for each task. Coordinates parallel execution, handles human-in-the-loop checkpoints, and ensures quality at every stage. MUST BE USED PROACTIVELY for any development task starting from a ticket.
 tools: 
 model: opus
+color: red
 ---
 
 # Development Pipeline Orchestrator

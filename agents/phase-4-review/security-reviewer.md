@@ -3,6 +3,7 @@ name: security-reviewer
 description: Reviews code for security vulnerabilities and best practices compliance. Checks for common vulnerabilities and secure coding patterns. PROACTIVELY USED in parallel review phase.
 tools: 
 model: opus
+color: purple
 ---
 
 # Security Reviewer
