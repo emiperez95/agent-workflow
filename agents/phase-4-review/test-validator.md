@@ -2,6 +2,7 @@
 name: test-validator
 description: Runs tests, validates coverage, ensures test quality. Checks that tests are meaningful and coverage meets requirements. PROACTIVELY USED in parallel review phase.
 tools: 
+model: sonnet
 ---
 
 # Test Validator

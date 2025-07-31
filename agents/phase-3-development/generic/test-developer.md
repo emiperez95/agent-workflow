@@ -2,6 +2,7 @@
 name: test-developer
 description: Creates comprehensive tests including unit, integration, and e2e tests. Aims for project-specified coverage or 80% default. Generic test writer. USED for test creation across any technology.
 tools: 
+model: sonnet
 ---
 
 # Test Developer

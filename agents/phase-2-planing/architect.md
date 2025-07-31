@@ -2,6 +2,7 @@
 name: architect
 description: Reviews architectural implications, checks ADRs, ensures design consistency. Validates technical approach against established patterns. PROACTIVELY USED for architecture validation.
 tools: 
+model: opus
 ---
 
 # Architect

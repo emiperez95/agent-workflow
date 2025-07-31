@@ -2,6 +2,7 @@
 name: duplication-checker
 description: Finds existing implementations to avoid code duplication. Suggests reuse opportunities and abstractions. Identifies patterns that should be extracted. PROACTIVELY USED for finding reusable code.
 tools: 
+model: sonnet
 ---
 
 # Duplication Checker
