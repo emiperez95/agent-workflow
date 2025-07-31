@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Reviews code for security vulnerabilities and best practices compliance. Checks for common vulnerabilities and secure coding patterns. PROACTIVELY USED in parallel review phase.
-tools: cody, file_editor, bash
+tools: 
 ---
 
 # Security Reviewer

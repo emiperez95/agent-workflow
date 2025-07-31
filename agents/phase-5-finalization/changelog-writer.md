@@ -1,7 +1,7 @@
 ---
 name: changelog-writer
 description: Creates detailed changelogs, identifies breaking changes, writes migration guides. Documents what changed and how to adapt. PROACTIVELY USED for release documentation.
-tools: cody, file_editor, git
+tools: 
 ---
 
 # Changelog Writer

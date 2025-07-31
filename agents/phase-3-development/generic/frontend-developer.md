@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: General frontend development including UI components, state management, and client-side logic. Works with various frontend frameworks. Generic fallback for frontend tasks. USED when no specialized frontend agent is available.
-tools: cody, file_editor, bash, npm
+tools: 
 ---
 
 # Frontend Developer (Generic)

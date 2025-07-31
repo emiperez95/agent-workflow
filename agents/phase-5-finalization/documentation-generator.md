@@ -1,7 +1,7 @@
 ---
 name: doc-generator
 description: Updates documentation based on code changes. Maintains API docs, READMEs, and technical guides. Ensures documentation stays in sync with code. PROACTIVELY USED for documentation updates.
-tools: cody, file_editor
+tools: 
 ---
 
 # Documentation Generator

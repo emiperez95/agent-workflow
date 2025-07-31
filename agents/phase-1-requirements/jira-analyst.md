@@ -1,7 +1,7 @@
 ---
 name: jira-analyst
 description: Extracts and analyzes Jira tickets, epics, and related stories. Reads acceptance criteria, DoD, comments, and title. Compiles comprehensive requirements documentation. PROACTIVELY USED for understanding requirements from Jira.
-tools: Atlassian:getJiraIssue, Atlassian:searchJiraIssuesUsingJql, Atlassian:getJiraIssueRemoteIssueLinks, file_editor
+tools: 
 ---
 
 # Jira Analyst

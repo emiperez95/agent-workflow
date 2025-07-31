@@ -1,7 +1,7 @@
 ---
 name: task-planner
 description: Decomposes stories using discovered agents. Matches tasks with agents based on deep description analysis, not just names. Creates optimal parallelizable task breakdown. PROACTIVELY USED for task planning and agent assignment.
-tools: analysis
+tools: 
 ---
 
 # Task Planner with Description-Based Matching

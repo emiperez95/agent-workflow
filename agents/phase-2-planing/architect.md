@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Reviews architectural implications, checks ADRs, ensures design consistency. Validates technical approach against established patterns. PROACTIVELY USED for architecture validation.
-tools: cody, file_editor, rg_search
+tools: 
 ---
 
 # Architect

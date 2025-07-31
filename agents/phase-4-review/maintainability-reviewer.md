@@ -1,7 +1,7 @@
 ---
 name: maintainability-reviewer
 description: Reviews code quality, documentation, and long-term maintainability. Ensures code is readable, well-documented, and follows best practices. PROACTIVELY USED in parallel review phase.
-tools: cody, file_editor, bash
+tools: 
 ---
 
 # Maintainability Reviewer
