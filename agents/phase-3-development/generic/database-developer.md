@@ -1,7 +1,7 @@
 ---
 name: database-developer
 description: General database development including schema design, migrations, and query optimization. Works with various database systems. Generic fallback for database tasks. USED when no specialized database agent is available.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, Edit, MultiEdit, Write, NotebookEdit, Bash
 model: sonnet
 color: yellow
 ---

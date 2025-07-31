@@ -1,7 +1,7 @@
 ---
 name: changelog-writer
 description: Creates detailed changelogs, identifies breaking changes, writes migration guides. Documents what changed and how to adapt. PROACTIVELY USED for release documentation.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, Edit, MultiEdit, Write, NotebookEdit
 model: sonnet
 color: orange
 ---

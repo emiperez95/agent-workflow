@@ -1,7 +1,7 @@
 ---
 name: maintainability-reviewer
 description: Reviews code quality, documentation, and long-term maintainability. Ensures code is readable, well-documented, and follows best practices. PROACTIVELY USED in parallel review phase.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch
 model: sonnet
 color: purple
 ---

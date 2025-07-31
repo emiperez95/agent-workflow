@@ -1,7 +1,7 @@
 ---
 name: pr-creator
 description: Creates well-formatted pull requests following project templates. Includes all context, links to tickets, and review summaries. PROACTIVELY USED for PR creation.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, Bash
 model: sonnet
 color: orange
 ---

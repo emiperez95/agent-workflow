@@ -1,7 +1,7 @@
 ---
 name: backend-developer
 description: General backend development including APIs, business logic, and server-side code. Handles various backend frameworks and patterns. Generic fallback for backend tasks. USED when no specialized backend agent is available.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, Edit, MultiEdit, Write, NotebookEdit, Bash, mcp__context7__resolve-library-id, mcp__context7__get-library-docs
 model: sonnet
 color: yellow
 ---

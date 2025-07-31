@@ -1,7 +1,7 @@
 ---
 name: requirements-clarifier
 description: Generates targeted questions to resolve ambiguities. Asks 3-4 questions per round maximum. Focuses on completeness and edge cases. Synthesizes answers into clear requirements. PROACTIVELY USED for clarifying requirements.
-tools:
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, mcp__sequential-thinking__sequentialthinking
 model: opus
 color: blue
 ---

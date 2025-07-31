@@ -1,7 +1,7 @@
 ---
 name: agent-discoverer
 description: Discovers and catalogs available developer agents. Analyzes full descriptions and capabilities for intelligent matching. Creates rich inventory with semantic understanding. PROACTIVELY USED for finding the right agent for each task.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, Bash
 model: sonnet
 color: green
 ---

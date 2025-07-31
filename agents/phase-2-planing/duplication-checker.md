@@ -1,7 +1,7 @@
 ---
 name: duplication-checker
 description: Finds existing implementations to avoid code duplication. Suggests reuse opportunities and abstractions. Identifies patterns that should be extracted. PROACTIVELY USED for finding reusable code.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch
 model: sonnet
 color: green
 ---

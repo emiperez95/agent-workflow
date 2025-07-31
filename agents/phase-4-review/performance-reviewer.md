@@ -1,7 +1,7 @@
 ---
 name: performance-reviewer
 description: Reviews code for performance implications. Analyzes time/space complexity, resource usage, and scalability. Identifies bottlenecks and optimization opportunities. PROACTIVELY USED in parallel review phase.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, mcp__sequential-thinking__sequentialthinking
 model: opus
 color: purple
 ---

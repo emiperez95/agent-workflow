@@ -1,7 +1,7 @@
 ---
 name: story-analyzer
 description: Analyzes story complexity and proposes phases for large stories. Identifies when stories should be broken into value-adding phases. Ensures incremental delivery. PROACTIVELY USED for complex story assessment.
-tools:
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, mcp__sequential-thinking__sequentialthinking
 model: opus
 color: green
 ---

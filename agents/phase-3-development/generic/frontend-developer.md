@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: General frontend development including UI components, state management, and client-side logic. Works with various frontend frameworks. Generic fallback for frontend tasks. USED when no specialized frontend agent is available.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, Edit, MultiEdit, Write, NotebookEdit, Bash, mcp__context7__resolve-library-id, mcp__context7__get-library-docs, mcp__magic__21st_magic_component_builder, mcp__magic__logo_search, mcp__magic__21st_magic_component_inspiration, mcp__magic__21st_magic_component_refiner
 model: sonnet
 color: yellow
 ---

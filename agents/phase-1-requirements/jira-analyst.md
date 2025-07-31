@@ -1,7 +1,7 @@
 ---
 name: jira-analyst
 description: Extracts and analyzes Jira tickets, epics, and related stories. Reads acceptance criteria, DoD, comments, and title. Compiles comprehensive requirements documentation. PROACTIVELY USED for understanding requirements from Jira.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, mcp__atlassian__atlassianUserInfo, mcp__atlassian__getAccessibleAtlassianResources, mcp__atlassian__getConfluenceSpaces, mcp__atlassian__getConfluencePage, mcp__atlassian__getPagesInConfluenceSpace, mcp__atlassian__getConfluencePageAncestors, mcp__atlassian__getConfluencePageFooterComments, mcp__atlassian__getConfluencePageInlineComments, mcp__atlassian__getConfluencePageDescendants, mcp__atlassian__searchConfluenceUsingCql, mcp__atlassian__getJiraIssue, mcp__atlassian__getTransitionsForJiraIssue, mcp__atlassian__lookupJiraAccountId, mcp__atlassian__searchJiraIssuesUsingJql, mcp__atlassian__getJiraIssueRemoteIssueLinks, mcp__atlassian__getVisibleJiraProjects, mcp__atlassian__getJiraProjectIssueTypesMetadata, mcp__sequential-thinking__sequentialthinking
 model: sonnet
 color: blue
 ---

@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Reviews architectural implications, checks ADRs, ensures design consistency. Validates technical approach against established patterns. PROACTIVELY USED for architecture validation.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, mcp__context7__resolve-library-id, mcp__context7__get-library-docs
 model: opus
 color: green
 ---

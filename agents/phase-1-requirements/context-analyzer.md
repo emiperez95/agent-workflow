@@ -1,7 +1,7 @@
 ---
 name: context-analyzer
 description: Analyzes codebase for patterns, existing implementations, and architectural context. Read-only access to understand current state. Identifies reusable code and project conventions. PROACTIVELY USED for understanding codebase context.
-tools: 
+tools: Glob, Grep, LS, Read, NotebookRead, WebFetch, TodoWrite, WebSearch, Bash
 model: sonnet
 color: blue
 ---
