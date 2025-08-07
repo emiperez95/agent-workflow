@@ -4,48 +4,40 @@ This directory contains all the AI agents that power the development pipeline. E
 
 ## 🗂️ Directory Structure
 
+> **Note**: The directory structure has been flattened for Claude compatibility. All agents are now in the root `agents/` directory.
+> 
+> **Important**: The `dev-orchestrator` has been converted to a Claude command (`/dev-orchestrator`) for better interactive workflow management.
+
 ```
 agents/
-├── orchestrator/
-│   └── dev-orchestrator.md      # Master pipeline orchestrator
-├── phase-1-requirements/
-│   ├── jira-analyst.md          # Jira ticket analyzer
-│   ├── context-analyzer.md      # Codebase pattern finder
-│   └── requirements-clarifier.md # Question generator
-├── phase-2-planning/
-│   ├── agent-discoverer.md      # Finds available agents
-│   ├── story-analyzer.md        # Complexity assessor
-│   ├── task-planner.md          # Task breakdown creator
-│   ├── architect.md             # Architecture validator
-│   └── duplication-checker.md   # Code reuse finder
-├── phase-3-development/
-│   ├── generic/
-│   │   ├── backend-developer.md    # Generic backend
-│   │   ├── frontend-developer.md   # Generic frontend
-│   │   ├── database-developer.md   # Generic database
-│   │   └── test-developer.md       # Generic testing
-│   └── specialized/
-│       └── .gitkeep             # Add your custom agents here!
-├── phase-4-review/
-│   ├── performance-reviewer.md  # Performance analyzer
-│   ├── security-reviewer.md     # Security validator
-│   ├── maintainability-reviewer.md # Code quality checker
-│   └── test-validator.md        # Coverage validator
-├── phase-5-finalization/
-│   ├── doc-generator.md         # Documentation updater
-│   ├── changelog-writer.md      # Release notes creator
-│   └── pr-creator.md            # Pull request formatter
-└── examples/
-    ├── react-specialist.md      # Example React agent
-    ├── django-specialist.md     # Example Django agent
-    └── api-wizard.md            # Example API agent
+├── agent-discoverer.md          # Finds available agents
+├── architect.md                 # Architecture validator
+├── backend-developer.md         # Generic backend
+├── changelog-writer.md          # Release documentation
+├── context-analyzer.md          # Codebase pattern finder
+├── database-developer.md        # Generic database
+├── documentation-generator.md   # Documentation updater
+├── duplication-checker.md       # Code reuse finder
+├── frontend-developer.md        # Generic frontend
+├── jira-analyst.md             # Jira ticket analyzer
+├── maintainability-reviewer.md  # Code quality reviewer
+├── performance-reviewer.md      # Performance analyzer
+├── pr-creator.md               # Pull request formatter
+├── requirements-clarifier.md    # Question generator
+├── security-reviewer.md         # Security validator
+├── story-analyzer.md           # Complexity assessor
+├── task-planner.md             # Task breakdown creator
+├── test-developer.md           # Generic testing
+└── test-validator.md           # Coverage validator
 ```
 
 ## 🎯 Agent Types
 
-### 1. Orchestrator
+### 1. Orchestrator (Now a Command)
 
-The brain of the operation. Manages all phases and coordinates other agents.
+> **Important**: The `dev-orchestrator` has been converted to a Claude command (`/dev-orchestrator`) for better interactive workflow management. Use `/dev-orchestrator <ticket-id>` to start the development workflow.
+
+The brain of the operation. Manages all phases and coordinates other agents through an interactive workflow with human checkpoints.
 
 ### 2. Requirements Agents
 

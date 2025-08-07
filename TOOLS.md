@@ -120,10 +120,7 @@ Write operations for Jira and Confluence.
 
 ## Agent Tool Assignments
 
-### Orchestrator
-- **dev-orchestrator**
-  - Tools: readonly + sequential-thinking
-  - Purpose: Coordinate workflow, analyze requirements, manage phases
+> **Note**: The dev-orchestrator has been converted to a Claude command (`/dev-orchestrator`) for better interactive workflow management. It is no longer available as a subagent.
 
 ### Phase 1: Requirements
 - **jira-analyst**
