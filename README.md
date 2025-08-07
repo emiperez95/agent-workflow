@@ -4,10 +4,13 @@
 
 [![Claude Compatible](https://img.shields.io/badge/Claude-Compatible-blue.svg)](https://claude.ai)
 [![Agents](https://img.shields.io/badge/Agents-20-green.svg)](./agents)
+[![Commands](https://img.shields.io/badge/Commands-2-purple.svg)](./commands)
 
 ## 🎯 What is this?
 
 An intelligent development pipeline that orchestrates specialized AI agents to handle the complete software development lifecycle - from understanding requirements to creating pull requests. Each phase is handled by specialized agents that work in parallel when possible, with human oversight at critical decision points.
+
+**Now includes**: The Strategic Business Analyst command (`/analyst`) for interactive brainstorming, market research, and AI-optimized documentation generation!
 
 ### ✨ Key Features
 
@@ -16,6 +19,7 @@ An intelligent development pipeline that orchestrates specialized AI agents to h
 - **🔄 Human-in-the-Loop**: Approval checkpoints at critical stages
 - **📈 Progressive Enhancement**: Start generic, evolve with specialized agents
 - **🎨 Creative Freedom**: Name your agents anything - `api-wizard`, `bug-whisperer`, `style-maestro`!
+- **📊 Business Analysis**: Interactive brainstorming and strategic documentation with `/analyst`
 
 ## 📸 Pipeline Overview
 
@@ -52,20 +56,41 @@ ln -s /path/to/claude-dev-pipeline/agents .claude/agents
 
 ```bash
 # Start development from a Jira ticket
-/agent dev-orchestrator
+/dev-orchestrator <ticket-id>
 
-# The orchestrator will guide you through all phases
+# Or start a brainstorming session
+/analyst brainstorm
+
+# Or create project documentation
+/analyst
 ```
 
 ### 3. Your First Run
 
 1. Have a Jira ticket ready
-2. Run `/agent dev-orchestrator`
+2. Run `/dev-orchestrator <ticket-id>`
 3. Answer clarifying questions
 4. Approve the task plan
 5. Watch parallel development happen
 6. Review and iterate
 7. Get a ready-to-merge PR!
+
+## 🎮 Available Commands
+
+### `/dev-orchestrator <ticket-id>`
+Orchestrates the complete development workflow from Jira ticket to pull request. Manages all 5 phases with human checkpoints.
+
+### `/analyst [mode]`
+Your Strategic Business Analyst "Mary" for:
+- **Brainstorming** - Interactive ideation sessions with 20+ techniques (SCAMPER, Mind Mapping, Six Thinking Hats, etc.)
+- **Project Briefs** - Comprehensive project documentation
+- **Market Research** - Market analysis and opportunity identification
+- **Competitive Analysis** - Systematic competitor evaluation
+- **Research Prompts** - Deep research question generation
+- **Project Documentation** - AI-optimized codebase documentation
+- **Requirements Elicitation** - Advanced requirements gathering
+
+Start with `/analyst` to see all modes or jump directly to a mode with `/analyst brainstorm`.
 
 ## 📋 Pipeline Phases
 
@@ -260,6 +285,27 @@ We welcome contributions! Here's how:
 - Share performance metrics
 
 ## 📚 Advanced Usage
+
+### Strategic Planning with the Analyst
+
+Use `/analyst` before starting development to:
+- Brainstorm feature ideas and approaches
+- Create comprehensive project briefs
+- Research market opportunities
+- Analyze competitive landscape
+- Generate AI-ready documentation
+
+Example workflow:
+```bash
+# 1. Start with brainstorming
+/analyst brainstorm
+
+# 2. Create project brief from ideas
+/analyst 2  # Select Project Brief mode
+
+# 3. Then run development pipeline
+/dev-orchestrator <ticket-id>
+```
 
 ### Multi-Phase Stories
 
