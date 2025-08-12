@@ -1,0 +1,9 @@
+
+# Agent Workflow Logging
+logs/
+visualizations/
+*.pyc
+__pycache__/
+
+# Local Claude settings (if any)
+.claude/
