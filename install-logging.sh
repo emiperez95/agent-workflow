@@ -19,6 +19,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_LOGGING=false
 INSTALL_VOICE=false
 INSTALL_ALL=false
+CLAUDE_DIR=""
+FORCE_LOCAL=false
+FORCE_SHARED=false
 
 show_help() {
     echo ""
@@ -39,13 +42,17 @@ show_help() {
     echo ""
     echo "  -a, --all         Install all available hooks"
     echo ""
+    echo "  -c, --claude-dir PATH   Use specific .claude folder (default: ~/.claude)"
+    echo "  --local               Force use of settings.local.json (with -c)"
+    echo "  --shared              Force use of settings.json (with -c)"
+    echo ""
     echo "  -h, --help        Show this help message"
     echo ""
     echo -e "${GREEN}Examples:${NC}"
-    echo "  ./install-logging.sh --logging      # Install only logging"
-    echo "  ./install-logging.sh --voice        # Install only voice notifications"
-    echo "  ./install-logging.sh --all          # Install everything"
-    echo "  ./install-logging.sh -l -v          # Install both logging and voice"
+    echo "  ./install-logging.sh --logging                    # Install logging globally"
+    echo "  ./install-logging.sh --voice -c ./.claude         # Install voice to project"
+    echo "  ./install-logging.sh --all -c ./.claude --local   # Install all to local settings"
+    echo "  ./install-logging.sh -l -v                        # Install both globally"
     echo ""
     echo -e "${YELLOW}Note:${NC} You'll need to restart Claude Code after installation"
     echo ""
@@ -69,6 +76,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         -a|--all)
             INSTALL_ALL=true
+            shift
+            ;;
+        -c|--claude-dir)
+            CLAUDE_DIR="$2"
+            shift 2
+            ;;
+        --local)
+            FORCE_LOCAL=true
+            shift
+            ;;
+        --shared)
+            FORCE_SHARED=true
             shift
             ;;
         -h|--help)
@@ -96,10 +115,54 @@ if [ "$INSTALL_LOGGING" = false ] && [ "$INSTALL_VOICE" = false ]; then
     exit 1
 fi
 
+# Validate flag combinations
+if [ "$FORCE_LOCAL" = true ] && [ "$FORCE_SHARED" = true ]; then
+    echo -e "${RED}Error: Cannot use both --local and --shared flags${NC}"
+    exit 1
+fi
+
+if ([ "$FORCE_LOCAL" = true ] || [ "$FORCE_SHARED" = true ]) && [ -z "$CLAUDE_DIR" ]; then
+    echo -e "${RED}Error: --local and --shared flags require -c/--claude-dir${NC}"
+    exit 1
+fi
+
+# Determine settings file location
+if [ -n "$CLAUDE_DIR" ]; then
+    # Custom .claude directory specified
+    CLAUDE_BASE_DIR="$CLAUDE_DIR"
+    
+    # Determine which settings file to use
+    if [ "$FORCE_LOCAL" = true ]; then
+        SETTINGS_FILE="settings.local.json"
+        SETTINGS_TYPE="personal local"
+    elif [ "$FORCE_SHARED" = true ]; then
+        SETTINGS_FILE="settings.json"
+        SETTINGS_TYPE="shared team"
+    else
+        # Auto-detect: prefer settings.local.json if it exists
+        if [ -f "$CLAUDE_BASE_DIR/settings.local.json" ]; then
+            SETTINGS_FILE="settings.local.json"
+            SETTINGS_TYPE="personal local"
+        else
+            SETTINGS_FILE="settings.json"
+            SETTINGS_TYPE="shared"
+        fi
+    fi
+    
+    CLAUDE_SETTINGS="$CLAUDE_BASE_DIR/$SETTINGS_FILE"
+else
+    # Default to global settings
+    CLAUDE_BASE_DIR="$HOME/.claude"
+    CLAUDE_SETTINGS="$CLAUDE_BASE_DIR/settings.json"
+    SETTINGS_TYPE="global"
+fi
+
 echo ""
 echo "🚀 Installing Agent Workflow Hooks"
 echo "=================================="
 echo "Project directory: $PROJECT_DIR"
+echo -e "${BLUE}Installing to: $CLAUDE_SETTINGS${NC}"
+echo -e "${BLUE}Settings type: $SETTINGS_TYPE${NC}"
 echo ""
 
 # Display what will be installed
@@ -109,10 +172,9 @@ echo -e "${GREEN}Features to install:${NC}"
 echo ""
 
 # Check if Claude settings exist
-CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 if [ ! -f "$CLAUDE_SETTINGS" ]; then
     echo -e "${YELLOW}Creating new Claude settings file...${NC}"
-    mkdir -p "$HOME/.claude"
+    mkdir -p "$CLAUDE_BASE_DIR"
     echo '{"hooks": {}}' > "$CLAUDE_SETTINGS"
 fi
 

@@ -19,6 +19,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 UNINSTALL_LOGGING=false
 UNINSTALL_VOICE=false
 UNINSTALL_ALL=false
+CLAUDE_DIR=""
+FORCE_LOCAL=false
+FORCE_SHARED=false
 
 show_help() {
     echo ""
@@ -39,13 +42,17 @@ show_help() {
     echo ""
     echo "  -a, --all         Remove all hooks"
     echo ""
+    echo "  -c, --claude-dir PATH   Use specific .claude folder (default: ~/.claude)"
+    echo "  --local               Force use of settings.local.json (with -c)"
+    echo "  --shared              Force use of settings.json (with -c)"
+    echo ""
     echo "  -h, --help        Show this help message"
     echo ""
     echo -e "${GREEN}Examples:${NC}"
-    echo "  ./uninstall-logging.sh --logging    # Remove only logging"
-    echo "  ./uninstall-logging.sh --voice      # Remove only voice notifications"
-    echo "  ./uninstall-logging.sh --all        # Remove everything"
-    echo "  ./uninstall-logging.sh -l -v        # Remove both logging and voice"
+    echo "  ./uninstall-logging.sh --logging                  # Remove logging globally"
+    echo "  ./uninstall-logging.sh --voice -c ./.claude       # Remove voice from project"
+    echo "  ./uninstall-logging.sh --all -c ./.claude --local # Remove all from local settings"
+    echo "  ./uninstall-logging.sh -l -v                      # Remove both globally"
     echo ""
     echo -e "${YELLOW}Note:${NC} You'll need to restart Claude Code after uninstallation"
     echo ""
@@ -69,6 +76,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         -a|--all)
             UNINSTALL_ALL=true
+            shift
+            ;;
+        -c|--claude-dir)
+            CLAUDE_DIR="$2"
+            shift 2
+            ;;
+        --local)
+            FORCE_LOCAL=true
+            shift
+            ;;
+        --shared)
+            FORCE_SHARED=true
             shift
             ;;
         -h|--help)
@@ -96,10 +115,54 @@ if [ "$UNINSTALL_LOGGING" = false ] && [ "$UNINSTALL_VOICE" = false ]; then
     exit 1
 fi
 
+# Validate flag combinations
+if [ "$FORCE_LOCAL" = true ] && [ "$FORCE_SHARED" = true ]; then
+    echo -e "${RED}Error: Cannot use both --local and --shared flags${NC}"
+    exit 1
+fi
+
+if ([ "$FORCE_LOCAL" = true ] || [ "$FORCE_SHARED" = true ]) && [ -z "$CLAUDE_DIR" ]; then
+    echo -e "${RED}Error: --local and --shared flags require -c/--claude-dir${NC}"
+    exit 1
+fi
+
+# Determine settings file location
+if [ -n "$CLAUDE_DIR" ]; then
+    # Custom .claude directory specified
+    CLAUDE_BASE_DIR="$CLAUDE_DIR"
+    
+    # Determine which settings file to use
+    if [ "$FORCE_LOCAL" = true ]; then
+        SETTINGS_FILE="settings.local.json"
+        SETTINGS_TYPE="personal local"
+    elif [ "$FORCE_SHARED" = true ]; then
+        SETTINGS_FILE="settings.json"
+        SETTINGS_TYPE="shared team"
+    else
+        # Auto-detect: prefer settings.local.json if it exists
+        if [ -f "$CLAUDE_BASE_DIR/settings.local.json" ]; then
+            SETTINGS_FILE="settings.local.json"
+            SETTINGS_TYPE="personal local"
+        else
+            SETTINGS_FILE="settings.json"
+            SETTINGS_TYPE="shared"
+        fi
+    fi
+    
+    CLAUDE_SETTINGS="$CLAUDE_BASE_DIR/$SETTINGS_FILE"
+else
+    # Default to global settings
+    CLAUDE_BASE_DIR="$HOME/.claude"
+    CLAUDE_SETTINGS="$CLAUDE_BASE_DIR/settings.json"
+    SETTINGS_TYPE="global"
+fi
+
 echo ""
 echo "🗑️  Uninstalling Agent Workflow Hooks"
 echo "====================================="
 echo "Project directory: $PROJECT_DIR"
+echo -e "${BLUE}Removing from: $CLAUDE_SETTINGS${NC}"
+echo -e "${BLUE}Settings type: $SETTINGS_TYPE${NC}"
 echo ""
 
 # Display what will be uninstalled
@@ -109,7 +172,6 @@ echo -e "${GREEN}Features to remove:${NC}"
 echo ""
 
 # Check if Claude settings exist
-CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 if [ ! -f "$CLAUDE_SETTINGS" ]; then
     echo -e "${YELLOW}No Claude settings file found. Nothing to uninstall.${NC}"
     exit 0
