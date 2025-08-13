@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Uninstall Agent Workflow Logging System
-# This script removes the logging hooks from Claude Code settings
+# Uninstall Agent Workflow Hooks
+# This script removes hooks from Claude Code settings
 
 set -e
 
@@ -9,14 +9,104 @@ set -e
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-
-echo "🗑️  Uninstalling Agent Workflow Logging System"
-echo "============================================="
 
 # Get the absolute path to this project
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Parse command line arguments
+UNINSTALL_LOGGING=false
+UNINSTALL_VOICE=false
+UNINSTALL_ALL=false
+
+show_help() {
+    echo ""
+    echo -e "${BLUE}Agent Workflow Hook Uninstaller${NC}"
+    echo "================================"
+    echo ""
+    echo "This script removes Claude Code hooks for this project."
+    echo ""
+    echo -e "${GREEN}Usage:${NC}"
+    echo "  ./uninstall-logging.sh [OPTIONS]"
+    echo ""
+    echo -e "${GREEN}Options:${NC}"
+    echo "  -l, --logging     Remove agent logging hooks"
+    echo "                    Removes logging of agent invocations and sessions"
+    echo ""
+    echo "  -v, --voice       Remove voice notification hooks"
+    echo "                    Removes voice alerts for Claude events"
+    echo ""
+    echo "  -a, --all         Remove all hooks"
+    echo ""
+    echo "  -h, --help        Show this help message"
+    echo ""
+    echo -e "${GREEN}Examples:${NC}"
+    echo "  ./uninstall-logging.sh --logging    # Remove only logging"
+    echo "  ./uninstall-logging.sh --voice      # Remove only voice notifications"
+    echo "  ./uninstall-logging.sh --all        # Remove everything"
+    echo "  ./uninstall-logging.sh -l -v        # Remove both logging and voice"
+    echo ""
+    echo -e "${YELLOW}Note:${NC} You'll need to restart Claude Code after uninstallation"
+    echo ""
+}
+
+# Parse arguments
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -l|--logging)
+            UNINSTALL_LOGGING=true
+            shift
+            ;;
+        -v|--voice)
+            UNINSTALL_VOICE=true
+            shift
+            ;;
+        -a|--all)
+            UNINSTALL_ALL=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+# If --all is specified, enable everything
+if [ "$UNINSTALL_ALL" = true ]; then
+    UNINSTALL_LOGGING=true
+    UNINSTALL_VOICE=true
+fi
+
+# Check if at least one feature is selected
+if [ "$UNINSTALL_LOGGING" = false ] && [ "$UNINSTALL_VOICE" = false ]; then
+    echo -e "${RED}Error: No features selected for removal${NC}"
+    show_help
+    exit 1
+fi
+
+echo ""
+echo "🗑️  Uninstalling Agent Workflow Hooks"
+echo "====================================="
 echo "Project directory: $PROJECT_DIR"
+echo ""
+
+# Display what will be uninstalled
+echo -e "${GREEN}Features to remove:${NC}"
+[ "$UNINSTALL_LOGGING" = true ] && echo "  ✓ Agent logging system"
+[ "$UNINSTALL_VOICE" = true ] && echo "  ✓ Voice notifications"
+echo ""
 
 # Check if Claude settings exist
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
@@ -26,13 +116,15 @@ if [ ! -f "$CLAUDE_SETTINGS" ]; then
 fi
 
 # Create a Python script to remove our hooks
-cat > /tmp/uninstall_claude_logging.py << EOF
+cat > /tmp/uninstall_claude_hooks.py << EOF
 #!/usr/bin/env python3
 import json
 import sys
 
 settings_file = "$CLAUDE_SETTINGS"
 project_dir = "$PROJECT_DIR"
+uninstall_logging = "$UNINSTALL_LOGGING" == "true"
+uninstall_voice = "$UNINSTALL_VOICE" == "true"
 
 # Read existing settings
 try:
@@ -47,13 +139,21 @@ if 'hooks' not in settings:
     print("No hooks found in settings. Nothing to uninstall.")
     sys.exit(0)
 
-# Commands to remove (identify our hooks by the project path)
-our_hook_patterns = [
-    f"python3 {project_dir}/hooks/log_session.py",
-    f"python3 {project_dir}/hooks/log_agent_invocation.py"
-]
+# Commands to remove based on what's being uninstalled
+our_hook_patterns = []
 
-hooks_removed = False
+if uninstall_logging:
+    our_hook_patterns.extend([
+        f"python3 {project_dir}/hooks/log_session.py",
+        f"python3 {project_dir}/hooks/log_agent_invocation.py"
+    ])
+
+if uninstall_voice:
+    our_hook_patterns.extend([
+        f"python3 {project_dir}/hooks/voice_notifier.py"
+    ])
+
+hooks_removed = []
 
 # Process each hook event
 for event in list(settings['hooks'].keys()):
@@ -64,7 +164,6 @@ for event in list(settings['hooks'].keys()):
     filtered_config = []
     for item in settings['hooks'][event]:
         # Check if this item contains our hooks
-        keep_item = True
         if 'hooks' in item:
             # Filter hooks within this item
             filtered_hooks = []
@@ -73,8 +172,8 @@ for event in list(settings['hooks'].keys()):
                     # Check if this is one of our commands
                     is_ours = any(pattern in hook['command'] for pattern in our_hook_patterns)
                     if is_ours:
-                        print(f"Removing {event} hook: {hook['command'][:50]}...")
-                        hooks_removed = True
+                        hook_type = "logging" if "log_" in hook['command'] else "voice"
+                        hooks_removed.append(f"{event} ({hook_type})")
                     else:
                         filtered_hooks.append(hook)
                 else:
@@ -84,9 +183,6 @@ for event in list(settings['hooks'].keys()):
             if filtered_hooks:
                 item['hooks'] = filtered_hooks
                 filtered_config.append(item)
-            elif 'matcher' not in item:
-                # If no hooks left and no matcher, skip this item entirely
-                keep_item = False
         else:
             filtered_config.append(item)
     
@@ -96,12 +192,10 @@ for event in list(settings['hooks'].keys()):
     else:
         # Remove the event entirely if no hooks left
         del settings['hooks'][event]
-        print(f"Removed empty {event} event")
 
 # Clean up empty hooks section
 if 'hooks' in settings and not settings['hooks']:
     del settings['hooks']
-    print("Removed empty hooks section")
 
 # Write updated settings
 try:
@@ -109,56 +203,72 @@ try:
         json.dump(settings, f, indent=2)
     
     if hooks_removed:
-        print("✅ Logging hooks removed successfully")
+        print(f"✅ Removed hooks: {', '.join(set(hooks_removed))}")
     else:
-        print("No logging hooks found for this project")
+        print("No matching hooks found for this project")
 except Exception as e:
     print(f"❌ Error writing settings: {e}")
     sys.exit(1)
 EOF
 
 # Run the Python script to remove hooks
-echo -e "${GREEN}Removing logging hooks from Claude settings...${NC}"
-python3 /tmp/uninstall_claude_logging.py
+echo -e "${GREEN}Removing hooks from Claude settings...${NC}"
+python3 /tmp/uninstall_claude_hooks.py
 
 # Clean up
-rm /tmp/uninstall_claude_logging.py
+rm /tmp/uninstall_claude_hooks.py
 
-# Check for global symlinks
-echo ""
-echo -e "${GREEN}Checking for global tool symlinks...${NC}"
-REMOVED_SYMLINKS=false
-for tool in analyze_workflow monitor query_logs tail_logs visualize_flow; do
-    SYMLINK="/usr/local/bin/agent-${tool}"
-    if [ -L "$SYMLINK" ]; then
-        # Check if symlink points to our project
-        LINK_TARGET=$(readlink "$SYMLINK")
-        if [[ "$LINK_TARGET" == "$PROJECT_DIR"* ]]; then
-            echo -e "${YELLOW}Found symlink: $SYMLINK${NC}"
-            read -p "Remove this symlink? (y/n) " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                sudo rm "$SYMLINK"
-                echo -e "${GREEN}  Removed: agent-${tool}${NC}"
-                REMOVED_SYMLINKS=true
+# Check for global symlinks (only if uninstalling logging)
+if [ "$UNINSTALL_LOGGING" = true ]; then
+    echo ""
+    echo -e "${GREEN}Checking for global tool symlinks...${NC}"
+    REMOVED_SYMLINKS=false
+    for tool in analyze_workflow monitor query_logs tail_logs visualize_flow; do
+        SYMLINK="/usr/local/bin/agent-${tool}"
+        if [ -L "$SYMLINK" ]; then
+            # Check if symlink points to our project
+            LINK_TARGET=$(readlink "$SYMLINK")
+            if [[ "$LINK_TARGET" == "$PROJECT_DIR"* ]]; then
+                echo -e "${YELLOW}Found symlink: $SYMLINK${NC}"
+                read -p "Remove this symlink? (y/n) " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    sudo rm "$SYMLINK"
+                    echo -e "${GREEN}  Removed: agent-${tool}${NC}"
+                    REMOVED_SYMLINKS=true
+                fi
             fi
         fi
-    fi
-done
+    done
+fi
 
 # Summary
 echo ""
 echo -e "${GREEN}✅ Uninstall complete!${NC}"
 echo ""
-echo "The following has been removed:"
-echo "  • Logging hooks from ~/.claude/settings.json"
-if [ "$REMOVED_SYMLINKS" = true ]; then
-    echo "  • Global tool symlinks from /usr/local/bin"
+
+if [ "$UNINSTALL_LOGGING" = true ]; then
+    echo "📊 Logging system removed:"
+    echo "  • Agent invocation logging hooks"
+    echo "  • Session tracking hooks"
+    if [ "$REMOVED_SYMLINKS" = true ]; then
+        echo "  • Global tool symlinks from /usr/local/bin"
+    fi
+    echo ""
 fi
-echo ""
+
+if [ "$UNINSTALL_VOICE" = true ]; then
+    echo "🔊 Voice notifications removed:"
+    echo "  • Stop event voice alerts"
+    echo "  • Notification event voice alerts"
+    echo ""
+fi
+
 echo "Note: The following remain (you can delete manually if desired):"
-echo "  • Log files in: $PROJECT_DIR/logs/"
+if [ "$UNINSTALL_LOGGING" = true ]; then
+    echo "  • Log files in: $PROJECT_DIR/logs/"
+    echo "  • Analysis tools in: $PROJECT_DIR/tools/"
+fi
 echo "  • Hook scripts in: $PROJECT_DIR/hooks/"
-echo "  • Analysis tools in: $PROJECT_DIR/tools/"
 echo ""
 echo -e "${YELLOW}⚠️  Restart Claude Code for changes to take effect${NC}"
