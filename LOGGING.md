@@ -16,9 +16,23 @@ This logging system tracks all agent invocations in the Claude Development Pipel
 # 1. Configure hooks in ~/.claude/settings.json
 # 2. Create logs directory
 # 3. Optionally add tools to PATH
+# 4. Safely merge with existing hooks
 ```
 
 **Note**: Restart Claude Code after installation for hooks to take effect.
+
+### Uninstallation
+
+```bash
+# Remove logging hooks
+./uninstall-logging.sh
+
+# This will:
+# 1. Remove only this project's hooks from settings
+# 2. Preserve other projects' hooks
+# 3. Optionally remove global tool symlinks
+# 4. Leave log files intact (delete manually if desired)
+```
 
 ### View Logs
 
