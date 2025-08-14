@@ -9,28 +9,49 @@ This logging system tracks all agent invocations in the Claude Development Pipel
 ### Installation
 
 ```bash
-# Run the installation script
-./install-logging.sh
+# Install globally (default)
+./install-logging.sh --logging
+./install-logging.sh --voice
+./install-logging.sh --all
+
+# Install to project-specific settings
+./install-logging.sh --logging -c ./.claude         # Auto-detect (prefers settings.local.json)
+./install-logging.sh --voice -c ./.claude --local    # Force personal settings
+./install-logging.sh --all -c ./.claude --shared     # Force team settings
 
 # This will:
-# 1. Configure hooks in ~/.claude/settings.json
-# 2. Create logs directory
+# 1. Configure hooks in the specified settings file
+# 2. Create logs directory (for logging features)
 # 3. Optionally add tools to PATH
 # 4. Safely merge with existing hooks
 ```
+
+**Location options:**
+- No `-c` flag: Uses `~/.claude/settings.json` (global)
+- `-c PATH`: Uses specified .claude folder
+  - Auto-detects: prefers `settings.local.json` if it exists
+  - `--local`: Forces `settings.local.json` (personal)
+  - `--shared`: Forces `settings.json` (team)
 
 **Note**: Restart Claude Code after installation for hooks to take effect.
 
 ### Uninstallation
 
 ```bash
-# Remove logging hooks
-./uninstall-logging.sh
+# Remove from global settings
+./uninstall-logging.sh --logging
+./uninstall-logging.sh --voice
+./uninstall-logging.sh --all
+
+# Remove from project-specific settings
+./uninstall-logging.sh --logging -c ./.claude         # Auto-detect
+./uninstall-logging.sh --voice -c ./.claude --local   # Force personal
+./uninstall-logging.sh --all -c ./.claude --shared    # Force team
 
 # This will:
-# 1. Remove only this project's hooks from settings
+# 1. Remove only this project's hooks from the specified settings
 # 2. Preserve other projects' hooks
-# 3. Optionally remove global tool symlinks
+# 3. Optionally remove global tool symlinks (for logging)
 # 4. Leave log files intact (delete manually if desired)
 ```
 
@@ -70,10 +91,15 @@ agent-workflow/
 │   ├── monitor.py             # Status checker
 │   ├── tail_logs.py           # Live monitoring
 │   └── watch.sh               # Quick live view
-└── install-logging.sh     # Installation script
+├── install-logging.sh     # Installation script
+└── uninstall-logging.sh   # Uninstallation script
 
-~/.claude/
-└── settings.json          # Hook configuration (updated by installer)
+~/.claude/                 # Global settings
+└── settings.json          # Hook configuration
+
+./.claude/                 # Project settings (example)
+├── settings.json          # Team shared settings (in git)
+└── settings.local.json    # Personal settings (not in git)
 ```
 
 ### Data Flow

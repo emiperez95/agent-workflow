@@ -6,6 +6,7 @@ These Python scripts are Claude Code hooks that log agent invocations to track w
 
 - **`log_agent_invocation.py`** - Logs Task tool calls (agent invocations)
 - **`log_session.py`** - Tracks session start/stop events
+- **`voice_notifier.py`** - Voice notifications for Stop and Notification events
 
 ## How It Works
 
@@ -18,14 +19,26 @@ These Python scripts are Claude Code hooks that log agent invocations to track w
 ## Installation
 
 ```bash
-# From project root
-./install-logging.sh
+# Install features globally (default)
+./install-logging.sh --logging    # Agent logging only
+./install-logging.sh --voice      # Voice notifications only
+./install-logging.sh --all        # Everything
+
+# Install to project-specific settings
+./install-logging.sh --all -c ./.claude           # Auto-detect (prefers local)
+./install-logging.sh --all -c ./.claude --local   # Force settings.local.json
+./install-logging.sh --all -c ./.claude --shared  # Force settings.json
 ```
 
 This will:
-1. Add hook configuration to `~/.claude/settings.json`
+1. Add hook configuration to the specified settings file
 2. Configure hooks to call these scripts with absolute paths
-3. Create the `logs/` directory for data storage
+3. Create the `logs/` directory for data storage (if logging enabled)
+
+**Settings precedence** (highest to lowest):
+1. `.claude/settings.local.json` (personal, not in git)
+2. `.claude/settings.json` (team shared, in git)
+3. `~/.claude/settings.json` (global)
 
 ## Data Captured
 
@@ -38,7 +51,10 @@ This will:
 
 ## Manual Configuration
 
-If you prefer to configure manually, add to `~/.claude/settings.json`:
+If you prefer to configure manually, add to your chosen settings file:
+- Global: `~/.claude/settings.json`
+- Project shared: `./.claude/settings.json`
+- Project local: `./.claude/settings.local.json`
 
 ```json
 {
@@ -66,4 +82,17 @@ Logs are stored in the project directory:
 - `logs/agent_workflow.db` - SQLite database
 - `logs/sessions/*.json` - Individual session files
 
-This keeps logs project-local and doesn't pollute the global Claude configuration.
+This keeps logs project-local regardless of which settings file you use.
+
+## Features
+
+### Logging System
+- Tracks all agent invocations
+- Records execution times and phases
+- Stores prompts and responses
+- Enables workflow analysis
+
+### Voice Notifications
+- Speaks "Claude has stopped" when Claude finishes
+- Speaks "Claude needs your attention" when waiting for input
+- Uses macOS built-in `say` command
