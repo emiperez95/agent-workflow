@@ -7,11 +7,20 @@ Exposes SQLite database metrics in Prometheus format for Grafana visualization
 import sqlite3
 import time
 import argparse
+import logging
 from pathlib import Path
 from datetime import datetime, timedelta
 from prometheus_client import start_http_server, Counter, Histogram, Gauge, Info
 from prometheus_client.core import CollectorRegistry
 from collections import defaultdict
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Setup paths
 TOOLS_DIR = Path(__file__).parent
@@ -255,7 +264,7 @@ class MetricsCollector:
     def collect_metrics(self):
         """Collect all metrics from database"""
         if not self.db_path.exists():
-            print(f"Database not found at {self.db_path}")
+            logger.warning(f"Database not found at {self.db_path}")
             return
         
         try:
@@ -282,8 +291,14 @@ class MetricsCollector:
             
             conn.close()
             
+        except sqlite3.Error as e:
+            logger.error(f"Database error while collecting metrics: {e}")
+            if conn:
+                conn.close()
         except Exception as e:
-            print(f"Error collecting metrics: {e}")
+            logger.error(f"Unexpected error collecting metrics: {e}", exc_info=True)
+            if conn:
+                conn.close()
     
     def _collect_invocation_metrics(self, cursor):
         """Collect agent invocation metrics"""
@@ -328,8 +343,8 @@ class MetricsCollector:
                 try:
                     timestamp = datetime.fromisoformat(start).timestamp()
                     agent_last_execution_timestamp.labels(agent_name=agent).set(timestamp)
-                except:
-                    pass
+                except (ValueError, AttributeError) as e:
+                    logger.debug(f"Could not parse timestamp '{start}': {e}")
             
             # Track errors
             if status in ['failed', 'error']:
@@ -413,8 +428,8 @@ class MetricsCollector:
                 try:
                     timestamp = datetime.fromisoformat(start_time).timestamp()
                     session_start_timestamp.labels(session_id=short_id).set(timestamp)
-                except:
-                    pass
+                except (ValueError, AttributeError) as e:
+                    logger.debug(f"Could not parse session timestamp '{start_time}': {e}")
             
             # Get agent metrics for this session
             cursor.execute('''
@@ -467,8 +482,8 @@ class MetricsCollector:
                                 # Idle time
                                 idle_time = session_duration - (total_agent_time or 0)
                                 session_idle_time.labels(session_id=short_id).set(max(0, idle_time))
-                        except:
-                            pass
+                        except (ValueError, AttributeError, TypeError) as e:
+                            logger.debug(f"Could not calculate session efficiency for {short_id}: {e}")
                     
                     # Completion status (0=failed, 1=partial, 2=complete)
                     if status == 'completed' or success_rate > 90:
@@ -499,8 +514,8 @@ class MetricsCollector:
                                datetime.fromisoformat(start_time)).total_seconds()
                     if duration > 0:
                         session_duration_by_first_agent.labels(first_agent=first_agent).observe(duration)
-                except:
-                    pass
+                except (ValueError, AttributeError, TypeError) as e:
+                    logger.debug(f"Could not calculate duration for first agent {first_agent}: {e}")
             
             # Calculate max parallel factor
             cursor.execute('''
@@ -591,28 +606,19 @@ class MetricsCollector:
         cursor.execute('''
             SELECT agent_name, tool_name, 
                    COUNT(*) as usage_count,
-                   SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as success_count,
-                   AVG(duration_seconds) as avg_duration
+                   SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as success_count
             FROM agent_tool_uses
             WHERE agent_name != 'unknown' AND agent_name != 'direct'
             GROUP BY agent_name, tool_name
         ''')
         
         tool_uses = cursor.fetchall()
-        for agent, tool, count, success_count, avg_duration in tool_uses:
+        for agent, tool, count, success_count in tool_uses:
             # Set usage counter
             agent_tool_usage_total.labels(
                 agent_name=agent,
                 tool_name=tool
             ).set(count)
-            
-            # Set duration histogram
-            if avg_duration:
-                for _ in range(int(count)):  # Approximate histogram
-                    agent_tool_duration_seconds.labels(
-                        agent_name=agent,
-                        tool_name=tool
-                    ).observe(avg_duration)
             
             # Calculate success rate
             if count > 0:
@@ -621,6 +627,24 @@ class MetricsCollector:
                     agent_name=agent,
                     tool_name=tool
                 ).set(success_rate)
+        
+        # Get individual duration records for histogram
+        # This approach observes actual duration values instead of approximating
+        # by repeating average values, providing accurate histogram data
+        cursor.execute('''
+            SELECT agent_name, tool_name, duration_seconds
+            FROM agent_tool_uses
+            WHERE agent_name != 'unknown' AND agent_name != 'direct'
+            AND duration_seconds IS NOT NULL AND duration_seconds > 0
+        ''')
+        
+        duration_records = cursor.fetchall()
+        for agent, tool, duration in duration_records:
+            # Observe actual duration values in histogram
+            agent_tool_duration_seconds.labels(
+                agent_name=agent,
+                tool_name=tool
+            ).observe(duration)
         
         # Calculate tools per agent invocation
         cursor.execute('''
@@ -677,23 +701,23 @@ class MetricsCollector:
     
     def run_forever(self, port=9090):
         """Run the metrics collection loop"""
-        print(f"Starting Prometheus exporter on port {port}")
-        print(f"Metrics available at http://localhost:{port}/metrics")
-        print(f"Database: {self.db_path}")
-        print("-" * 60)
+        logger.info(f"Starting Prometheus exporter on port {port}")
+        logger.info(f"Metrics available at http://localhost:{port}/metrics")
+        logger.info(f"Database: {self.db_path}")
+        logger.info("-" * 60)
         
         # Start HTTP server
         start_http_server(port, registry=registry)
         
         # Initial collection
         self.collect_metrics()
-        print(f"[{datetime.now().isoformat()}] Initial metrics collected")
+        logger.info("Initial metrics collected")
         
         # Collection loop
         while True:
             time.sleep(self.update_interval)
             self.collect_metrics()
-            print(f"[{datetime.now().isoformat()}] Metrics updated")
+            logger.debug("Metrics updated")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -727,9 +751,9 @@ def main():
     try:
         collector.run_forever(port=args.port)
     except KeyboardInterrupt:
-        print("\nShutting down exporter...")
+        logger.info("Shutting down exporter...")
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Fatal error: {e}", exc_info=True)
         return 1
     
     return 0
