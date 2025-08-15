@@ -25,7 +25,7 @@ registry = CollectorRegistry()
 # Define Prometheus metrics
 
 # Agent-specific metrics
-agent_invocation_total = Counter(
+agent_invocation_total = Gauge(
     'agent_invocation_total',
     'Total number of agent invocations',
     ['agent_name', 'phase', 'status', 'model'],
@@ -73,7 +73,7 @@ agent_error_total = Counter(
     registry=registry
 )
 
-phase_distribution_total = Counter(
+phase_distribution_total = Gauge(
     'phase_distribution_total',
     'Distribution of agents across phases',
     ['phase'],
@@ -198,7 +198,7 @@ session_completion_status = Gauge(
 )
 
 # Tool usage metrics
-agent_tool_usage_total = Counter(
+agent_tool_usage_total = Gauge(
     'agent_tool_usage_total',
     'Total tool uses by agent and tool',
     ['agent_name', 'tool_name'],
@@ -298,7 +298,8 @@ class MetricsCollector:
         
         invocations = cursor.fetchall()
         
-        # Reset counters (they accumulate)
+        # Count invocations by labels
+        invocation_counts = defaultdict(int)
         phase_counts = defaultdict(int)
         
         for agent, phase, status, model, start, end, duration in invocations:
@@ -308,19 +309,8 @@ class MetricsCollector:
             model = model or 'unknown'
             
             # Count invocations
-            agent_invocation_total.labels(
-                agent_name=agent,
-                phase=phase,
-                status=status,
-                model=model
-            )._value._value = 0  # Reset before incrementing
-            
-            agent_invocation_total.labels(
-                agent_name=agent,
-                phase=phase,
-                status=status,
-                model=model
-            ).inc()
+            key = (agent, phase, status, model)
+            invocation_counts[key] += 1
             
             # Track phase distribution
             phase_counts[phase] += 1
@@ -345,9 +335,18 @@ class MetricsCollector:
             if status in ['failed', 'error']:
                 agent_error_total.labels(agent_name=agent, phase=phase).inc()
         
+        # Set invocation counts
+        for (agent, phase, status, model), count in invocation_counts.items():
+            agent_invocation_total.labels(
+                agent_name=agent,
+                phase=phase,
+                status=status,
+                model=model
+            ).set(count)
+        
         # Update phase distribution
         for phase, count in phase_counts.items():
-            phase_distribution_total.labels(phase=phase)._value._value = count
+            phase_distribution_total.labels(phase=phase).set(count)
     
     def _collect_session_metrics(self, cursor):
         """Collect session-related metrics"""
@@ -605,7 +604,7 @@ class MetricsCollector:
             agent_tool_usage_total.labels(
                 agent_name=agent,
                 tool_name=tool
-            )._value._value = count
+            ).set(count)
             
             # Set duration histogram
             if avg_duration:
