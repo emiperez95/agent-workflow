@@ -8,6 +8,8 @@ import sqlite3
 import time
 import argparse
 import logging
+import signal
+import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 from prometheus_client import start_http_server, Counter, Histogram, Gauge, Info
@@ -256,6 +258,29 @@ class MetricsCollector:
         self.db_path = db_path
         self.last_update = None
         self.update_interval = 15  # seconds
+        self.shutdown_requested = False
+        self._setup_signal_handlers()
+    
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        signal.signal(signal.SIGTERM, self._handle_shutdown)
+        signal.signal(signal.SIGINT, self._handle_shutdown)
+        if hasattr(signal, 'SIGHUP'):
+            signal.signal(signal.SIGHUP, self._handle_reload)
+    
+    def _handle_shutdown(self, signum, frame):
+        """Handle shutdown signals gracefully"""
+        logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+        self.shutdown_requested = True
+    
+    def _handle_reload(self, signum, frame):
+        """Handle reload signal by forcing metrics update"""
+        logger.info(f"Received SIGHUP, forcing metrics update...")
+        try:
+            self.collect_metrics()
+            logger.info("Metrics updated successfully after SIGHUP")
+        except Exception as e:
+            logger.error(f"Failed to update metrics after SIGHUP: {e}")
         
     def get_connection(self):
         """Get database connection"""
@@ -700,10 +725,11 @@ class MetricsCollector:
                 current_agent = agent
     
     def run_forever(self, port=9090):
-        """Run the metrics collection loop"""
+        """Run the metrics collection loop with graceful shutdown support"""
         logger.info(f"Starting Prometheus exporter on port {port}")
         logger.info(f"Metrics available at http://localhost:{port}/metrics")
         logger.info(f"Database: {self.db_path}")
+        logger.info("Press Ctrl+C to shutdown gracefully")
         logger.info("-" * 60)
         
         # Start HTTP server
@@ -713,11 +739,21 @@ class MetricsCollector:
         self.collect_metrics()
         logger.info("Initial metrics collected")
         
-        # Collection loop
-        while True:
-            time.sleep(self.update_interval)
-            self.collect_metrics()
-            logger.debug("Metrics updated")
+        # Collection loop with shutdown check
+        while not self.shutdown_requested:
+            # Use shorter sleep intervals to be more responsive to shutdown
+            for _ in range(int(self.update_interval)):
+                if self.shutdown_requested:
+                    break
+                time.sleep(1)
+            
+            if not self.shutdown_requested:
+                self.collect_metrics()
+                logger.debug("Metrics updated")
+        
+        # Graceful shutdown
+        logger.info("Performing graceful shutdown...")
+        logger.info("Exporter stopped successfully")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -741,8 +777,18 @@ def main():
         default=str(DB_PATH),
         help='Path to SQLite database'
     )
+    parser.add_argument(
+        '--log-level',
+        type=str,
+        default='INFO',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        help='Logging level (default: INFO)'
+    )
     
     args = parser.parse_args()
+    
+    # Set logging level
+    logger.setLevel(getattr(logging, args.log_level))
     
     # Create collector and run
     collector = MetricsCollector(Path(args.db))
@@ -751,7 +797,8 @@ def main():
     try:
         collector.run_forever(port=args.port)
     except KeyboardInterrupt:
-        logger.info("Shutting down exporter...")
+        # Signal handler will handle this, just exit cleanly
+        pass
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         return 1
