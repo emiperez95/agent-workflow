@@ -1,0 +1,74 @@
+# Prometheus configuration for Agent Workflow monitoring
+# Place this file in your Prometheus configuration directory
+# or merge with your existing prometheus.yml
+
+global:
+  scrape_interval: 15s # How often to scrape targets
+  evaluation_interval: 15s # How often to evaluate rules
+  scrape_timeout: 10s
+
+# Alertmanager configuration (optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "agent_workflow_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries
+  - job_name: 'agent_workflow'
+    
+    # Override global settings for this job
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Metrics path defaults to '/metrics'
+    metrics_path: /metrics
+    
+    # Scheme defaults to 'http'
+    scheme: http
+    
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          environment: 'development'
+          project: 'claude-development-pipeline'
+    
+    # Optional: Add relabeling to customize metric labels
+    metric_relabel_configs:
+      # Keep only the metrics we care about (optional optimization)
+      - source_labels: [__name__]
+        regex: 'agent_.*|session_.*|phase_.*|database_.*|total_.*|avg_.*|parallel_.*'
+        action: keep
+
+  # If you have Prometheus itself to monitor
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Example alert rules (create agent_workflow_rules.yml separately)
+# rules:
+#   - name: agent_workflow_alerts
+#     rules:
+#       - alert: AgentExecutionSlow
+#         expr: agent_duration_seconds{quantile="0.95"} > 300
+#         for: 5m
+#         labels:
+#           severity: warning
+#         annotations:
+#           summary: "Agent {{ $labels.agent_name }} is running slowly"
+#           description: "95th percentile execution time is above 5 minutes"
+#       
+#       - alert: HighErrorRate
+#         expr: rate(agent_error_total[5m]) > 0.1
+#         for: 5m
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "High error rate for agent {{ $labels.agent_name }}"
+#           description: "Error rate is above 10% for the last 5 minutes"
