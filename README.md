@@ -260,10 +260,55 @@ auto_retry_attempts: 2
 
 ## 📈 Metrics & Monitoring
 
+### 🔍 Advanced Logging System (NEW)
+
+The pipeline now includes comprehensive logging and analytics capabilities:
+
+#### Real-time Hook Monitoring
+- **Session tracking**: Complete lifecycle with git branch, working directory
+- **Agent invocations**: 19 fields including prompts, responses, timing
+- **Tool usage**: Detailed tracking within agent context
+- **Token usage**: Full cost analysis with cache efficiency metrics
+
+#### Database Tables
+- `sessions`: Session lifecycle and metadata
+- `agent_invocations`: Complete agent execution history
+- `agent_tool_uses`: Tool usage within agents
+- `transcript_events`: Rich data from Claude transcripts (22+ fields)
+- `thinking_logs`: Claude's internal reasoning process
+- `tool_relationships`: UUID-based parent-child tracking
+
+#### Analytics Tools
+- **`tools/verify_hook_data.py`**: Verifies data completeness
+- **`tools/parse_transcript.py`**: Extracts rich metrics from transcripts
+- **`tools/prometheus_exporter.py`**: Exports metrics to Prometheus/Grafana
+
+#### Key Metrics Available
+- **Token Usage**: Track millions of tokens per session (example: 39.9M)
+- **Cache Efficiency**: Monitor cache hit rates (90%+ achievable)
+- **Performance**: Duration tracking for every operation
+- **Agent Patterns**: Most used agents, success rates, error frequencies
+- **Workflow Analysis**: Phase transitions, complexity patterns
+- **Cost Tracking**: Full token accounting for budget management
+
+#### Example Session Analysis
+```bash
+# Parse transcript for rich analytics
+python3 tools/parse_transcript.py --session <session-id> --analyze
+
+# Verify hook data completeness
+python3 tools/verify_hook_data.py --latest
+
+# View Prometheus metrics
+curl http://localhost:9090/metrics
+```
+
+### Traditional Metrics
+
 Track your pipeline performance:
 
 - Time per phase
-- Agent utilization
+- Agent utilization  
 - Review cycles needed
 - Success rates by agent
 - Common failure patterns

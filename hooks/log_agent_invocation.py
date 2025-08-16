@@ -170,6 +170,7 @@ def log_post_tool_use(hook_data):
     tool_name = hook_data.get("tool_name", "")
     tool_input = hook_data.get("tool_input", {})
     tool_response = hook_data.get("tool_response", {})
+    transcript_path = hook_data.get("transcript_path", "")
     
     if tool_name == "Task":
         agent_info = extract_agent_info(tool_input)
@@ -178,17 +179,47 @@ def log_post_tool_use(hook_data):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
+        # Extract performance metrics from response
+        usage_info = tool_response.get("usage", {})
+        total_tokens = tool_response.get("totalTokens", 0)
+        duration_ms = tool_response.get("totalDurationMs", 0)
+        
+        # Calculate duration in seconds
+        duration_seconds = duration_ms / 1000.0 if duration_ms else None
+        
+        # Extract model info if available
+        model = usage_info.get("service_tier", "")
+        
         # Find the most recent invocation for this agent in this session
         cursor.execute('''
-            UPDATE agent_invocations
-            SET end_time = ?, status = ?, raw_output = ?
+            SELECT id, start_time FROM agent_invocations
             WHERE session_id = ? AND agent_name = ? AND end_time IS NULL
             ORDER BY timestamp DESC
             LIMIT 1
-        ''', (
-            timestamp, "completed", json.dumps(tool_response),
-            session_id, agent_info["name"]
-        ))
+        ''', (session_id, agent_info["name"]))
+        
+        result = cursor.fetchone()
+        if result:
+            inv_id, start_time = result
+            # Calculate duration if not provided
+            if not duration_seconds and start_time:
+                try:
+                    start_dt = datetime.fromisoformat(start_time)
+                    end_dt = datetime.fromisoformat(timestamp)
+                    duration_seconds = (end_dt - start_dt).total_seconds()
+                except:
+                    pass
+            
+            # Update with all new fields
+            cursor.execute('''
+                UPDATE agent_invocations
+                SET end_time = ?, status = ?, raw_output = ?, 
+                    duration_seconds = ?, model = ?
+                WHERE id = ?
+            ''', (
+                timestamp, "completed", json.dumps(tool_response),
+                duration_seconds, model, inv_id
+            ))
         
         conn.commit()
         conn.close()

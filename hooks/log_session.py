@@ -7,6 +7,8 @@ Tracks session start and end events
 import json
 import sys
 import sqlite3
+import subprocess
+import os
 from datetime import datetime
 from pathlib import Path
 import argparse
@@ -21,6 +23,19 @@ SESSIONS_DIR = LOGS_DIR / "sessions"
 # Ensure directories exist
 LOGS_DIR.mkdir(exist_ok=True)
 SESSIONS_DIR.mkdir(exist_ok=True)
+
+def get_git_branch():
+    """Get current git branch"""
+    try:
+        result = subprocess.run(['git', 'branch', '--show-current'], 
+                              capture_output=True, text=True, cwd=PROJECT_DIR)
+        return result.stdout.strip() if result.returncode == 0 else "unknown"
+    except:
+        return "unknown"
+
+def get_claude_version():
+    """Get Claude Code version from environment or default"""
+    return os.environ.get('CLAUDE_VERSION', 'unknown')
 
 def init_database():
     """Initialize SQLite database with required tables"""
@@ -46,6 +61,16 @@ def log_session_start(hook_data):
     timestamp = datetime.now().isoformat()
     session_id = hook_data.get("session_id", "unknown")
     cwd = hook_data.get("cwd", "")
+    transcript_path = hook_data.get("transcript_path", "")
+    source = hook_data.get("source", "")
+    
+    # Enhanced metadata with all available fields
+    enhanced_metadata = {
+        **hook_data,
+        "captured_at": timestamp,
+        "git_branch": get_git_branch(),
+        "claude_version": get_claude_version()
+    }
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -55,7 +80,7 @@ def log_session_start(hook_data):
             session_id, start_time, status, cwd, metadata
         ) VALUES (?, ?, ?, ?, ?)
     ''', (
-        session_id, timestamp, "active", cwd, json.dumps(hook_data)
+        session_id, timestamp, "active", cwd, json.dumps(enhanced_metadata)
     ))
     
     conn.commit()
@@ -79,15 +104,31 @@ def log_session_stop(hook_data):
     """Log Stop event (session end)"""
     timestamp = datetime.now().isoformat()
     session_id = hook_data.get("session_id", "unknown")
+    transcript_path = hook_data.get("transcript_path", "")
+    stop_hook_active = hook_data.get("stop_hook_active", False)
     
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
+    # Get existing metadata
+    cursor.execute('SELECT metadata FROM sessions WHERE session_id = ?', (session_id,))
+    result = cursor.fetchone()
+    if result and result[0]:
+        existing_metadata = json.loads(result[0])
+        existing_metadata.update({
+            "stop_hook_active": stop_hook_active,
+            "transcript_path_at_stop": transcript_path,
+            "end_time": timestamp
+        })
+    else:
+        existing_metadata = hook_data
+    
+    # Update session with additional metadata
     cursor.execute('''
         UPDATE sessions
-        SET end_time = ?, status = ?
+        SET end_time = ?, status = ?, metadata = ?
         WHERE session_id = ?
-    ''', (timestamp, "completed", session_id))
+    ''', (timestamp, "completed", json.dumps(existing_metadata), session_id))
     
     conn.commit()
     conn.close()
