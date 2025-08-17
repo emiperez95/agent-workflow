@@ -33,6 +33,25 @@ DB_PATH = LOGS_DIR / "agent_workflow.db"
 # Create a custom registry to avoid conflicts
 registry = CollectorRegistry()
 
+# Configuration for query limits (prevent memory exhaustion)
+class MetricsConfig:
+    # Time windows for data collection
+    INVOCATION_WINDOW_DAYS = 7
+    SESSION_WINDOW_DAYS = 30
+    TOOL_USAGE_WINDOW_DAYS = 7
+    
+    # Result limits
+    MAX_INVOCATIONS = 10000
+    MAX_SESSIONS = 1000
+    MAX_TOOL_USAGE_RECORDS = 1000
+    MAX_DURATION_RECORDS = 5000
+    MAX_AGENTS = 100
+    MAX_TOOL_COMBINATIONS = 500
+    
+    # Memory monitoring
+    MEMORY_WARNING_THRESHOLD_MB = 500
+    MEMORY_CRITICAL_THRESHOLD_MB = 1000
+
 # Define Prometheus metrics
 
 # Agent-specific metrics
@@ -251,6 +270,29 @@ agent_primary_tool = Info(
     registry=registry
 )
 
+# Memory usage metrics for monitoring query performance
+exporter_memory_usage_mb = Gauge(
+    'exporter_memory_usage_mb',
+    'Memory usage of the prometheus exporter in MB',
+    registry=registry
+)
+
+exporter_query_duration_seconds = Histogram(
+    'exporter_query_duration_seconds',
+    'Duration of database queries in seconds',
+    ['query_type'],
+    buckets=[0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30],
+    registry=registry
+)
+
+exporter_query_result_count = Histogram(
+    'exporter_query_result_count',
+    'Number of rows returned by database queries',
+    ['query_type'],
+    buckets=[1, 10, 100, 500, 1000, 5000, 10000, 50000],
+    registry=registry
+)
+
 class MetricsCollector:
     """Collects and exposes metrics from SQLite database"""
     
@@ -259,6 +301,7 @@ class MetricsCollector:
         self.last_update = None
         self.update_interval = 15  # seconds
         self.shutdown_requested = False
+        self.config = MetricsConfig()
         self._setup_signal_handlers()
     
     def _setup_signal_handlers(self):
@@ -267,6 +310,51 @@ class MetricsCollector:
         signal.signal(signal.SIGINT, self._handle_shutdown)
         if hasattr(signal, 'SIGHUP'):
             signal.signal(signal.SIGHUP, self._handle_reload)
+    
+    def _monitor_memory_usage(self):
+        """Monitor and report memory usage"""
+        try:
+            process = psutil.Process()
+            memory_mb = process.memory_info().rss / 1024 / 1024
+            exporter_memory_usage_mb.set(memory_mb)
+            
+            if memory_mb > self.config.MEMORY_CRITICAL_THRESHOLD_MB:
+                logger.error(f"CRITICAL: Memory usage {memory_mb:.1f}MB exceeds threshold {self.config.MEMORY_CRITICAL_THRESHOLD_MB}MB")
+            elif memory_mb > self.config.MEMORY_WARNING_THRESHOLD_MB:
+                logger.warning(f"WARNING: Memory usage {memory_mb:.1f}MB exceeds threshold {self.config.MEMORY_WARNING_THRESHOLD_MB}MB")
+            
+            return memory_mb
+        except Exception as e:
+            logger.debug(f"Could not monitor memory usage: {e}")
+            return 0
+            
+    def _execute_query_with_monitoring(self, cursor, query, params=None, query_type="unknown"):
+        """Execute query with performance monitoring"""
+        start_time = time.time()
+        try:
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            if query.strip().upper().startswith('SELECT'):
+                results = cursor.fetchall()
+                result_count = len(results)
+                exporter_query_result_count.labels(query_type=query_type).observe(result_count)
+                
+                if result_count > 5000:
+                    logger.warning(f"Large query result: {result_count} rows for {query_type}")
+                    
+                return results
+            else:
+                return cursor.fetchall()
+                
+        finally:
+            duration = time.time() - start_time
+            exporter_query_duration_seconds.labels(query_type=query_type).observe(duration)
+            
+            if duration > 1.0:
+                logger.warning(f"Slow query: {duration:.2f}s for {query_type}")
     
     def _handle_shutdown(self, signum, frame):
         """Handle shutdown signals gracefully"""
@@ -292,6 +380,9 @@ class MetricsCollector:
             logger.warning(f"Database not found at {self.db_path}")
             return
         
+        # Monitor memory usage before collection
+        initial_memory = self._monitor_memory_usage()
+        
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -316,6 +407,13 @@ class MetricsCollector:
             
             conn.close()
             
+            # Monitor memory usage after collection
+            final_memory = self._monitor_memory_usage()
+            memory_growth = final_memory - initial_memory
+            
+            if memory_growth > 50:  # MB
+                logger.warning(f"High memory growth during collection: +{memory_growth:.1f}MB")
+            
         except sqlite3.Error as e:
             logger.error(f"Database error while collecting metrics: {e}")
             if conn:
@@ -327,13 +425,16 @@ class MetricsCollector:
     
     def _collect_invocation_metrics(self, cursor):
         """Collect agent invocation metrics"""
-        # Get all invocations with timing
+        # Get recent invocations with timing (last 7 days to prevent memory exhaustion)
         cursor.execute('''
             SELECT agent_name, phase, status, model,
                    start_time, end_time,
                    (julianday(end_time) - julianday(start_time)) * 86400 as duration
             FROM agent_invocations
             WHERE agent_name != 'unknown'
+            AND (start_time IS NULL OR datetime(start_time) > datetime('now', '-7 days'))
+            ORDER BY start_time DESC
+            LIMIT 10000
         ''')
         
         invocations = cursor.fetchall()
@@ -390,15 +491,20 @@ class MetricsCollector:
     
     def _collect_session_metrics(self, cursor):
         """Collect session-related metrics"""
-        # Get session durations
-        cursor.execute('''
+        # Get recent session durations (last 30 days to prevent memory exhaustion)
+        sessions = self._execute_query_with_monitoring(
+            cursor,
+            '''
             SELECT session_id, start_time, end_time,
                    (julianday(end_time) - julianday(start_time)) * 86400 as duration
             FROM sessions
             WHERE end_time IS NOT NULL
-        ''')
-        
-        sessions = cursor.fetchall()
+            AND (start_time IS NULL OR datetime(start_time) > datetime('now', '-30 days'))
+            ORDER BY start_time DESC
+            LIMIT 1000
+            ''',
+            query_type="sessions"
+        )
         for session_id, start, end, duration in sessions:
             if duration and duration > 0:
                 session_duration_seconds.observe(duration)
@@ -627,14 +733,18 @@ class MetricsCollector:
         if not cursor.fetchone():
             return  # Table doesn't exist yet
         
-        # Get tool usage counts by agent and tool
+        # Get recent tool usage counts by agent and tool (last 7 days)
         cursor.execute('''
             SELECT agent_name, tool_name, 
                    COUNT(*) as usage_count,
                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as success_count
             FROM agent_tool_uses
             WHERE agent_name != 'unknown' AND agent_name != 'direct'
+            AND (timestamp IS NULL OR datetime(timestamp) > datetime('now', '-7 days'))
             GROUP BY agent_name, tool_name
+            HAVING COUNT(*) > 0
+            ORDER BY usage_count DESC
+            LIMIT 1000
         ''')
         
         tool_uses = cursor.fetchall()
@@ -653,7 +763,7 @@ class MetricsCollector:
                     tool_name=tool
                 ).set(success_rate)
         
-        # Get individual duration records for histogram
+        # Get recent individual duration records for histogram (last 7 days, limited)
         # This approach observes actual duration values instead of approximating
         # by repeating average values, providing accurate histogram data
         cursor.execute('''
@@ -661,6 +771,9 @@ class MetricsCollector:
             FROM agent_tool_uses
             WHERE agent_name != 'unknown' AND agent_name != 'direct'
             AND duration_seconds IS NOT NULL AND duration_seconds > 0
+            AND (timestamp IS NULL OR datetime(timestamp) > datetime('now', '-7 days'))
+            ORDER BY timestamp DESC
+            LIMIT 5000
         ''')
         
         duration_records = cursor.fetchall()
@@ -671,7 +784,7 @@ class MetricsCollector:
                 tool_name=tool
             ).observe(duration)
         
-        # Calculate tools per agent invocation
+        # Calculate tools per agent invocation (recent data only)
         cursor.execute('''
             SELECT agent_name, 
                    AVG(tool_count) as avg_tools
@@ -680,7 +793,9 @@ class MetricsCollector:
                        COUNT(*) as tool_count
                 FROM agent_tool_uses
                 WHERE agent_name != 'unknown' AND agent_name != 'direct'
+                AND (timestamp IS NULL OR datetime(timestamp) > datetime('now', '-7 days'))
                 GROUP BY agent_name, agent_invocation_id
+                LIMIT 1000
             )
             GROUP BY agent_name
         ''')
@@ -689,14 +804,18 @@ class MetricsCollector:
             if avg_tools:
                 tools_per_agent_invocation.labels(agent_name=agent).set(avg_tools)
         
-        # Calculate tool diversity
+        # Calculate tool diversity (recent data only)
         cursor.execute('''
             SELECT agent_name,
                    COUNT(DISTINCT tool_name) as unique_tools,
                    COUNT(*) as total_uses
             FROM agent_tool_uses
             WHERE agent_name != 'unknown' AND agent_name != 'direct'
+            AND (timestamp IS NULL OR datetime(timestamp) > datetime('now', '-7 days'))
             GROUP BY agent_name
+            HAVING COUNT(*) > 0
+            ORDER BY total_uses DESC
+            LIMIT 100
         ''')
         
         for agent, unique_tools, total_uses in cursor.fetchall():
@@ -704,13 +823,16 @@ class MetricsCollector:
                 diversity = unique_tools / total_uses
                 agent_tool_diversity.labels(agent_name=agent).set(diversity)
         
-        # Find primary tool for each agent
+        # Find primary tool for each agent (recent data only)
         cursor.execute('''
             SELECT agent_name, tool_name, COUNT(*) as count
             FROM agent_tool_uses
             WHERE agent_name != 'unknown' AND agent_name != 'direct'
+            AND (timestamp IS NULL OR datetime(timestamp) > datetime('now', '-7 days'))
             GROUP BY agent_name, tool_name
+            HAVING COUNT(*) > 0
             ORDER BY agent_name, count DESC
+            LIMIT 500
         ''')
         
         current_agent = None
