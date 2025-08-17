@@ -10,6 +10,7 @@ import argparse
 import logging
 import signal
 import sys
+import psutil
 from pathlib import Path
 from datetime import datetime, timedelta
 from prometheus_client import start_http_server, Counter, Histogram, Gauge, Info
@@ -383,6 +384,7 @@ class MetricsCollector:
         # Monitor memory usage before collection
         initial_memory = self._monitor_memory_usage()
         
+        conn = None
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
