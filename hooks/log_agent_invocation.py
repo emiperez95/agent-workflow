@@ -23,10 +23,24 @@ SESSIONS_DIR = LOGS_DIR / "sessions"
 LOGS_DIR.mkdir(exist_ok=True)
 SESSIONS_DIR.mkdir(exist_ok=True)
 
+def cleanup_old_mappings():
+    """Clean up old invocation mapping files (older than 24 hours)"""
+    try:
+        import time
+        current_time = time.time()
+        for mapping_file in SESSIONS_DIR.glob("*_invocations.json"):
+            if mapping_file.stat().st_mtime < current_time - 86400:  # 24 hours
+                mapping_file.unlink()
+    except Exception:
+        pass  # Ignore cleanup errors
+
 def init_database():
     """Initialize SQLite database with required tables"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
+    # Clean up old mapping files periodically
+    cleanup_old_mappings()
     
     # Create tables if they don't exist
     cursor.execute('''
@@ -125,7 +139,7 @@ def log_pre_tool_use(hook_data):
     if tool_name == "Task":
         agent_info = extract_agent_info(tool_input)
         
-        # Store in database
+        # Store in database and get the ID for efficient lookup later
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
@@ -140,8 +154,26 @@ def log_pre_tool_use(hook_data):
             timestamp, "started", json.dumps(tool_input)
         ))
         
+        # Store the invocation ID for fast lookup in post_tool_use
+        invocation_id = cursor.lastrowid
+        
         conn.commit()
         conn.close()
+        
+        # Store invocation ID in a temporary mapping file for the session
+        # This avoids the N+1 query problem
+        invocation_map_file = SESSIONS_DIR / f"{session_id}_invocations.json"
+        invocation_map = {}
+        if invocation_map_file.exists():
+            with open(invocation_map_file, 'r') as f:
+                invocation_map = json.load(f)
+        
+        # Use agent_name and timestamp as key for mapping
+        map_key = f"{agent_info['name']}_{timestamp}"
+        invocation_map[map_key] = invocation_id
+        
+        with open(invocation_map_file, 'w') as f:
+            json.dump(invocation_map, f)
         
         # Also save to session JSON file
         session_file = SESSIONS_DIR / f"{session_id}.json"
@@ -190,17 +222,45 @@ def log_post_tool_use(hook_data):
         # Extract model info if available
         model = usage_info.get("service_tier", "")
         
-        # Find the most recent invocation for this agent in this session
-        cursor.execute('''
-            SELECT id, start_time FROM agent_invocations
-            WHERE session_id = ? AND agent_name = ? AND end_time IS NULL
-            ORDER BY timestamp DESC
-            LIMIT 1
-        ''', (session_id, agent_info["name"]))
+        # Try to get invocation ID from mapping file first (avoids N+1 query)
+        invocation_id = None
+        start_time = None
+        invocation_map_file = SESSIONS_DIR / f"{session_id}_invocations.json"
         
-        result = cursor.fetchone()
-        if result:
-            inv_id, start_time = result
+        if invocation_map_file.exists():
+            with open(invocation_map_file, 'r') as f:
+                invocation_map = json.load(f)
+            
+            # Find the most recent invocation ID for this agent
+            for key in sorted(invocation_map.keys(), reverse=True):
+                if key.startswith(f"{agent_info['name']}_"):
+                    invocation_id = invocation_map[key]
+                    # Clean up used mapping
+                    del invocation_map[key]
+                    with open(invocation_map_file, 'w') as f:
+                        json.dump(invocation_map, f)
+                    break
+        
+        # Fallback to query if mapping not found (backward compatibility)
+        if not invocation_id:
+            cursor.execute('''
+                SELECT id, start_time FROM agent_invocations
+                WHERE session_id = ? AND agent_name = ? AND end_time IS NULL
+                ORDER BY timestamp DESC
+                LIMIT 1
+            ''', (session_id, agent_info["name"]))
+            
+            result = cursor.fetchone()
+            if result:
+                invocation_id, start_time = result
+        else:
+            # Get start_time for duration calculation
+            cursor.execute('SELECT start_time FROM agent_invocations WHERE id = ?', (invocation_id,))
+            result = cursor.fetchone()
+            if result:
+                start_time = result[0]
+        
+        if invocation_id:
             # Calculate duration if not provided
             if not duration_seconds and start_time:
                 try:
@@ -210,7 +270,7 @@ def log_post_tool_use(hook_data):
                 except:
                     pass
             
-            # Update with all new fields
+            # Update with all new fields (single UPDATE query instead of SELECT+UPDATE)
             cursor.execute('''
                 UPDATE agent_invocations
                 SET end_time = ?, status = ?, raw_output = ?, 
@@ -218,7 +278,7 @@ def log_post_tool_use(hook_data):
                 WHERE id = ?
             ''', (
                 timestamp, "completed", json.dumps(tool_response),
-                duration_seconds, model, inv_id
+                duration_seconds, model, invocation_id
             ))
         
         conn.commit()
