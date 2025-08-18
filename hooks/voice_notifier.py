@@ -7,7 +7,29 @@ Provides audio notifications when Claude stops or needs attention
 import json
 import sys
 import subprocess
+import os
 from pathlib import Path
+
+def get_tmux_session_index():
+    """Get the current tmux session index number"""
+    # Check if we're in a tmux session
+    if 'TMUX' in os.environ:
+        try:
+            # Get session ID (format: $N where N is the index)
+            result = subprocess.run(
+                ['tmux', 'display-message', '-p', '#{session_id}'],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode == 0:
+                session_id = result.stdout.strip()
+                # Extract the number after the $
+                if session_id.startswith('$'):
+                    return session_id[1:]
+        except Exception:
+            pass
+    return None
 
 def speak(message):
     """Use macOS say command to speak a message"""
@@ -18,11 +40,19 @@ def speak(message):
 
 def handle_stop(data):
     """Handle Stop event - Claude has finished"""
-    speak("Claude has stopped")
+    session_index = get_tmux_session_index()
+    if session_index:
+        speak(f"Claude has stopped in session {session_index}")
+    else:
+        speak("Claude has stopped")
 
 def handle_notification(data):
     """Handle Notification event - Claude needs attention"""
-    speak("Claude needs your attention")
+    session_index = get_tmux_session_index()
+    if session_index:
+        speak(f"Claude needs your attention in session {session_index}")
+    else:
+        speak("Claude needs your attention")
 
 def main():
     try:
